@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>授業居眠りチェッカー</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome (SVG/JS kit, CSP-safe as a script) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        accent: {
+                            50: '#eef3f7',
+                            100: '#dbe6ee',
+                            200: '#b3cbdb',
+                            300: '#84a9c1',
+                            400: '#537f9d',
+                            500: '#33607f',
+                            600: '#294d67',
+                            700: '#213e54',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['Zen Kaku Gothic New', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg: #ffffff;
+            --bg-soft: #f6f7f8;
+            --surface: #ffffff;
+            --border: #e4e4e7;
+            --border-soft: #eeeeef;
+            --text: #27272a;
+            --text-mid: #52525b;
+            --text-soft: #a1a1aa;
+        }
+
+        body {
+            font-family: 'Zen Kaku Gothic New', sans-serif;
+            background-color: var(--bg);
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 8px; }
+
+        textarea:focus, input:focus { outline: none; }
+
+        /* 曜日別バー */
+        .weekday-bar { background: #33607f; border-radius: 3px 3px 0 0; }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #101012;
+                --surface: #17171a;
+                --border: #2a2a2e;
+                --border-soft: #222225;
+                --text: #e4e4e7;
+                --text-mid: #a1a1aa;
+                --text-soft: #6b6b70;
+            }
+            :root:not([data-theme="light"]) body { background: var(--bg); color: var(--text); }
+            :root:not([data-theme="light"]) .bg-white,
+            :root:not([data-theme="light"]) .bg-slate-50 { background: var(--surface) !important; }
+            :root:not([data-theme="light"]) .border-slate-200,
+            :root:not([data-theme="light"]) .border-slate-100 { border-color: var(--border) !important; }
+            :root:not([data-theme="light"]) .text-slate-800,
+            :root:not([data-theme="light"]) .text-slate-700 { color: var(--text) !important; }
+            :root:not([data-theme="light"]) .text-slate-500,
+            :root:not([data-theme="light"]) .text-slate-600 { color: var(--text-mid) !important; }
+            :root:not([data-theme="light"]) .text-slate-400,
+            :root:not([data-theme="light"]) .text-slate-300 { color: var(--text-soft) !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-12" style="color: var(--text);">
+
+    <!-- ヘッダー -->
+    <header class="border-b sticky top-0 z-30" style="background: var(--surface); border-color: var(--border); padding-top: env(safe-area-inset-top, 0px);">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <span class="w-10 h-10 rounded-lg border flex items-center justify-center text-base shrink-0" style="border-color: var(--border); color: var(--text-mid);">
+                    <i class="fa-regular fa-calendar-check"></i>
+                </span>
+                <div>
+                    <h1 class="text-lg md:text-xl font-bold tracking-tight flex items-center gap-2" style="color: var(--text);">
+                        授業居眠りチェッカー
+                        <span class="text-[10px] px-2 py-0.5 rounded-full border font-medium" style="border-color: var(--border); color: var(--text-mid);">1日4コマ・90分</span>
+                    </h1>
+                    <p class="text-xs" style="color: var(--text-soft);">ワンタップで記録</p>
+                </div>
+            </div>
+
+            <!-- ヘッダー右側アクション -->
+            <div class="flex items-center gap-2 text-xs">
+                <button id="btn-open-timetable-modal" class="px-3 py-1.5 border rounded-lg font-medium transition flex items-center gap-1.5 hover:bg-slate-50" style="border-color: var(--border); color: var(--text-mid);">
+                    <i class="fa-solid fa-table-cells"></i> 基本時間割
+                </button>
+                <button id="btn-sample-data" class="px-2.5 py-1.5 border rounded-lg font-medium transition hover:bg-slate-50" style="border-color: var(--border); color: var(--text-mid);" title="デモデータの自動生成">
+                    <i class="fa-solid fa-database"></i> <span class="hidden md:inline">サンプル</span>
+                </button>
+                <button id="btn-clear-all" class="px-2.5 py-1.5 border rounded-lg font-medium transition hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200" style="border-color: var(--border); color: var(--text-mid);" title="データの全消去">
+                    <i class="fa-regular fa-trash-can"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6">
+
+        <!-- 集計サマリーカード -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div class="rounded-lg border p-4 flex items-center gap-3" style="background: var(--surface); border-color: var(--border);">
+                <div class="w-10 h-10 rounded-md border flex items-center justify-center text-sm shrink-0" style="border-color: var(--border); color: var(--text-mid);">
+                    <i class="fa-solid fa-moon"></i>
+                </div>
+                <div>
+                    <div class="text-[11px] font-medium" style="color: var(--text-soft);">今月の寝たコマ数</div>
+                    <div class="text-lg md:text-xl font-bold" style="color: var(--text);"><span id="stat-month-periods">0</span> <span class="text-xs font-normal">コマ</span></div>
+                </div>
+            </div>
+
+            <div class="rounded-lg border p-4 flex items-center gap-3" style="background: var(--surface); border-color: var(--border);">
+                <div class="w-10 h-10 rounded-md border flex items-center justify-center text-sm shrink-0" style="border-color: var(--border); color: var(--text-mid);">
+                    <i class="fa-regular fa-calendar-minus"></i>
+                </div>
+                <div>
+                    <div class="text-[11px] font-medium" style="color: var(--text-soft);">居眠りした日数</div>
+                    <div class="text-lg md:text-xl font-bold" style="color: var(--text);"><span id="stat-month-days">0</span> <span class="text-xs font-normal">日</span></div>
+                </div>
+            </div>
+
+            <div class="rounded-lg border p-4 flex items-center gap-3" style="background: var(--surface); border-color: var(--border);">
+                <div class="w-10 h-10 rounded-md border flex items-center justify-center text-sm shrink-0" style="border-color: var(--border); color: var(--text-mid);">
+                    <i class="fa-solid fa-list-ol"></i>
+                </div>
+                <div>
+                    <div class="text-[11px] font-medium" style="color: var(--text-soft);">苦手教科 No.1</div>
+                    <div class="text-sm font-bold truncate max-w-[110px]" id="stat-top-subject" style="color: var(--text);">---</div>
+                </div>
+            </div>
+
+            <div class="rounded-lg border p-4 flex items-center gap-3" style="background: var(--surface); border-color: var(--border);">
+                <div class="w-10 h-10 rounded-md border flex items-center justify-center text-sm shrink-0" style="border-color: var(--border); color: var(--text-mid);">
+                    <i class="fa-regular fa-clock"></i>
+                </div>
+                <div>
+                    <div class="text-[11px] font-medium" style="color: var(--text-soft);">要注意コマ</div>
+                    <div class="text-sm font-bold" id="stat-peak-period" style="color: var(--text);">---</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- メインコンテンツ (左右2カラム) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- 左側: カレンダー ＆ 分析 (7列) -->
+            <div class="lg:col-span-7 flex flex-col gap-6">
+
+                <!-- カレンダー -->
+                <div class="rounded-lg border p-4 md:p-6" style="background: var(--surface); border-color: var(--border);">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <h2 id="calendar-month-year" class="text-lg md:text-xl font-bold" style="color: var(--text);">2026年 9月</h2>
+                            <button id="btn-today" class="px-2.5 py-1 text-xs border rounded-md font-medium transition hover:bg-slate-50" style="border-color: var(--border); color: var(--text-mid);">今日</button>
+                        </div>
+                        <div class="flex gap-1">
+                            <button id="btn-prev-month" class="w-8 h-8 rounded-md border flex items-center justify-center transition hover:bg-slate-50" style="border-color: var(--border); color: var(--text-mid);">
+                                <i class="fa-solid fa-chevron-left text-xs"></i>
+                            </button>
+                            <button id="btn-next-month" class="w-8 h-8 rounded-md border flex items-center justify-center transition hover:bg-slate-50" style="border-color: var(--border); color: var(--text-mid);">
+                                <i class="fa-solid fa-chevron-right text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 曜日ヘッダー -->
+                    <div class="grid grid-cols-7 gap-1 text-center font-medium text-xs mb-2">
+                        <div class="text-rose-400">日</div>
+                        <div style="color: var(--text-soft);">月</div>
+                        <div style="color: var(--text-soft);">火</div>
+                        <div style="color: var(--text-soft);">水</div>
+                        <div style="color: var(--text-soft);">木</div>
+                        <div style="color: var(--text-soft);">金</div>
+                        <div style="color: var(--text-soft);">土</div>
+                    </div>
+
+                    <!-- カレンダー本体グリッド -->
+                    <div id="calendar-grid" class="grid grid-cols-7 gap-1 md:gap-1.5">
+                        <!-- JS Dynamic Grid -->
+                    </div>
+
+                    <!-- 凡例 -->
+                    <div class="mt-4 pt-3 border-t flex flex-wrap gap-4 text-xs justify-center" style="border-color: var(--border-soft); color: var(--text-soft);">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-rose-400 inline-block"></span> 居眠りあり
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-check text-[10px]"></i> 全起き
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full border-2 border-accent-500 inline-block"></span> 選択中
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 統計分析パネル -->
+                <div class="rounded-lg border p-5" style="background: var(--surface); border-color: var(--border);">
+                    <div class="flex items-center justify-between border-b pb-2 mb-4" style="border-color: var(--border-soft);">
+                        <h3 class="text-sm font-bold flex items-center gap-2" style="color: var(--text);">
+                            <i class="fa-solid fa-chart-simple text-xs" style="color: var(--text-soft);"></i> 居眠り分析
+                        </h3>
+                        <span class="text-xs" style="color: var(--text-soft);">集計結果</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <!-- 苦手教科 TOP5 -->
+                        <div>
+                            <h4 class="text-xs font-bold mb-2" style="color: var(--text-mid);">居眠りが多い教科 TOP5</h4>
+                            <div id="top-subjects-list" class="space-y-1.5 text-xs">
+                                <!-- Dynamic Output -->
+                            </div>
+                        </div>
+
+                        <!-- 曜日別居眠り回数 -->
+                        <div>
+                            <h4 class="text-xs font-bold mb-2" style="color: var(--text-mid);">曜日別の居眠りコマ数</h4>
+                            <div id="weekday-chart" class="flex items-end justify-between h-24 pt-3 px-2 border-b" style="border-color: var(--border-soft);">
+                                <!-- Dynamic Bars -->
+                            </div>
+                            <div class="flex justify-between text-[10px] mt-1 px-1" style="color: var(--text-soft);">
+                                <span>月</span><span>火</span><span>水</span><span>木</span><span>金</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 右側: 選択日のワンタップ記録カード (5列) -->
+            <div class="lg:col-span-5 flex flex-col gap-6">
+
+                <div class="rounded-lg border p-5 sticky top-20" style="background: var(--surface); border-color: var(--border);">
+                    <div class="flex justify-between items-center mb-4 border-b pb-3" style="border-color: var(--border-soft);">
+                        <div>
+                            <div class="text-[10px] font-medium tracking-wide" style="color: var(--text-soft);">選択日</div>
+                            <h3 id="selected-date-title" class="text-base font-bold" style="color: var(--text);">2026年9月25日(金)</h3>
+                        </div>
+                        <button id="btn-edit-day-subjects" class="px-2.5 py-1 border text-xs font-medium rounded-md transition hover:bg-slate-50 flex items-center gap-1.5" style="border-color: var(--border); color: var(--text-mid);">
+                            <i class="fa-solid fa-pen text-[10px]"></i> 科目を変更
+                        </button>
+                    </div>
+
+                    <!-- ワンタップ記録リスト (1〜4コマ) -->
+                    <div id="daily-periods-container" class="space-y-2.5">
+                        <!-- JS Dynamic Period Items -->
+                    </div>
+
+                    <!-- 補足メモ -->
+                    <div class="mt-4 pt-3 border-t" style="border-color: var(--border-soft);">
+                        <label class="block text-xs font-bold mb-1" style="color: var(--text-mid);">メモ・言い訳</label>
+                        <textarea id="daily-note-input" rows="2" placeholder="例: 前日遅くまでゲームをしてしまった..." class="w-full border rounded-md p-2.5 text-xs resize-none" style="background: var(--bg-soft); border-color: var(--border); color: var(--text);"></textarea>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- モーダル1: 基本時間割（マスター時間割）一括編集 -->
+    <div id="modal-timetable" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 hidden">
+        <div class="rounded-lg max-w-2xl w-full p-5 md:p-6 border max-h-[90vh] flex flex-col" style="background: var(--surface); border-color: var(--border);">
+            <div class="flex justify-between items-center pb-3 border-b mb-4" style="border-color: var(--border-soft);">
+                <div>
+                    <h3 class="text-base font-bold flex items-center gap-2" style="color: var(--text);">
+                        <i class="fa-solid fa-table-cells text-xs" style="color: var(--text-soft);"></i> 基本時間割の設定
+                    </h3>
+                    <p class="text-xs" style="color: var(--text-soft);">毎週繰り返されるデフォルトの1〜4コマの授業を設定します</p>
+                </div>
+                <button class="btn-close-modal text-lg font-bold p-1" style="color: var(--text-soft);">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- 時間割入力フォーム (月〜金) -->
+            <div class="overflow-y-auto pr-1 flex-1 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-5 gap-3" id="master-timetable-grid">
+                    <!-- JS Dynamic Input Fields for Mon-Fri -->
+                </div>
+            </div>
+
+            <div class="pt-4 border-t flex justify-end gap-2 mt-2" style="border-color: var(--border-soft);">
+                <button class="btn-close-modal px-4 py-2 border rounded-md text-xs font-medium transition hover:bg-slate-50" style="border-color: var(--border); color: var(--text-mid);">
+                    キャンセル
+                </button>
+                <button id="btn-save-master-timetable" class="px-5 py-2 bg-accent-600 hover:bg-accent-700 text-white rounded-md text-xs font-bold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-floppy-disk"></i> 保存する
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル2: 日別科目カスタム編集モーダル -->
+    <div id="modal-day-custom" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 hidden">
+        <div class="rounded-lg max-w-md w-full p-5 border" style="background: var(--surface); border-color: var(--border);">
+            <div class="flex justify-between items-center pb-3 border-b mb-4" style="border-color: var(--border-soft);">
+                <div>
+                    <h3 class="text-sm font-bold flex items-center gap-2" style="color: var(--text);">
+                        <i class="fa-solid fa-pen-to-square text-xs" style="color: var(--text-soft);"></i> 本日の科目をカスタマイズ
+                    </h3>
+                    <p id="modal-day-custom-date" class="text-xs" style="color: var(--text-soft);">2026年9月25日</p>
+                </div>
+                <button class="btn-close-day-modal text-lg font-bold p-1" style="color: var(--text-soft);">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3" id="day-custom-inputs">
+                <!-- JS Dynamic inputs for 1-4 periods -->
+            </div>
+
+            <div class="pt-4 border-t flex justify-end gap-2 mt-4" style="border-color: var(--border-soft);">
+                <button id="btn-reset-day-custom" class="px-3 py-2 text-xs font-medium rounded-md transition hover:bg-rose-50 text-rose-500 mr-auto">
+                    基本時間割に戻す
+                </button>
+                <button class="btn-close-day-modal px-4 py-2 border rounded-md text-xs font-medium transition hover:bg-slate-50" style="border-color: var(--border); color: var(--text-mid);">
+                    キャンセル
+                </button>
+                <button id="btn-save-day-custom" class="px-4 py-2 bg-accent-600 hover:bg-accent-700 text-white rounded-md text-xs font-bold transition">
+                    保存する
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- トースト通知 -->
+    <div id="toast-message" class="fixed bottom-5 right-5 bg-slate-800 text-white px-4 py-2.5 rounded-md flex items-center gap-2.5 translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <i class="fa-solid fa-check text-xs"></i>
+        <span id="toast-text" class="text-xs font-medium">メッセージ</span>
+    </div>
+
+    <script>
+        /**
+         * 授業居眠りチェッカー (1日4コマ 90分授業対応)
+         */
+
+        const STORAGE_KEY_RECORDS = 'sleep_tracker_records_v2';
+        const STORAGE_KEY_TIMETABLE = 'sleep_tracker_timetable_v2';
+        const STORAGE_KEY_CUSTOM_SUBJECTS = 'sleep_tracker_custom_subjects_v2';
+        const STORAGE_KEY_NOTES = 'sleep_tracker_notes_v2';
+
+        // デフォルトの基本時間割 (1:月 〜 5:金)
+        const DEFAULT_MASTER_TIMETABLE = {
+            1: ['英語', '数学II', '物理', '現代文'],
+            2: ['化学', '体育', '世界史', '英語'],
+            3: ['数学III', '古典', '物理', '情報'],
+            4: ['現代文', '英語', '化学', '地理'],
+            5: ['世界史', '数学II', '体育', '総合']
+        };
+
+        const WEEKDAY_NAMES = ['月', '火', '水', '木', '金'];
+
+        // アプリの状態
+        let state = {
+            currentDate: new Date(),        // カレンダー表示月
+            selectedDateStr: '',            // YYYY-MM-DD
+            masterTimetable: {},            // 曜日別デフォルト時間割
+            records: {},                    // { "YYYY-MM-DD": { 1: true, 2: false, 3: true, 4: false } }  (true:寝た)
+            customSubjects: {},             // { "YYYY-MM-DD": { 1: "補講数学", ... } }
+            notes: {}                       // { "YYYY-MM-DD": "メモテキスト" }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAllData();
+
+            // 今日の日付をセット (YYYY-MM-DD)
+            const today = new Date();
+            state.selectedDateStr = formatDateKey(today);
+
+            initEventListeners();
+            renderCalendar();
+            renderDailyLogging();
+            renderDashboard();
+        });
+
+        function loadAllData() {
+            try {
+                // 基本時間割
+                const ttData = localStorage.getItem(STORAGE_KEY_TIMETABLE);
+                state.masterTimetable = ttData ? JSON.parse(ttData) : JSON.parse(JSON.stringify(DEFAULT_MASTER_TIMETABLE));
+
+                // 居眠り記録
+                const recData = localStorage.getItem(STORAGE_KEY_RECORDS);
+                state.records = recData ? JSON.parse(recData) : {};
+
+                // 日別教科カスタム
+                const subData = localStorage.getItem(STORAGE_KEY_CUSTOM_SUBJECTS);
+                state.customSubjects = subData ? JSON.parse(subData) : {};
+
+                // メモ
+                const noteData = localStorage.getItem(STORAGE_KEY_NOTES);
+                state.notes = noteData ? JSON.parse(noteData) : {};
+            } catch (e) {
+                console.error("Storage loading error:", e);
+            }
+        }
+
+        function saveAllData() {
+            try {
+                localStorage.setItem(STORAGE_KEY_TIMETABLE, JSON.stringify(state.masterTimetable));
+                localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(state.records));
+                localStorage.setItem(STORAGE_KEY_CUSTOM_SUBJECTS, JSON.stringify(state.customSubjects));
+                localStorage.setItem(STORAGE_KEY_NOTES, JSON.stringify(state.notes));
+            } catch (e) {
+                console.error("Storage saving error:", e);
+            }
+        }
+
+        // 指定した日付の教科名（1〜4コマ）を取得
+        function getSubjectsForDate(dateStr) {
+            const parts = dateStr.split('-');
+            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            const dayOfWeek = d.getDay(); // 0:日, 1:月 ~ 5:金, 6:土
+
+            // カスタム科目がある場合
+            const custom = state.customSubjects[dateStr];
+
+            // デフォルトマスター時間割（土日は空）
+            const master = (dayOfWeek >= 1 && dayOfWeek <= 5) ? (state.masterTimetable[dayOfWeek] || ['', '', '', '']) : ['', '', '', ''];
+
+            const result = [];
+            for (let p = 1; p <= 4; p++) {
+                if (custom && custom[p] !== undefined) {
+                    result.push(custom[p]);
+                } else {
+                    result.push(master[p - 1] || '授業なし');
+                }
+            }
+            return result;
+        }
+
+        function initEventListeners() {
+            // 月移動
+            document.getElementById('btn-prev-month').onclick = () => {
+                state.currentDate.setMonth(state.currentDate.getMonth() - 1);
+                renderCalendar();
+            };
+            document.getElementById('btn-next-month').onclick = () => {
+                state.currentDate.setMonth(state.currentDate.getMonth() + 1);
+                renderCalendar();
+            };
+            document.getElementById('btn-today').onclick = () => {
+                state.currentDate = new Date();
+                state.selectedDateStr = formatDateKey(new Date());
+                renderCalendar();
+                renderDailyLogging();
+            };
+
+            // 基本時間割モーダル開閉
+            document.getElementById('btn-open-timetable-modal').onclick = openTimetableModal;
+            document.querySelectorAll('.btn-close-modal').forEach(btn => {
+                btn.onclick = () => document.getElementById('modal-timetable').classList.add('hidden');
+            });
+            document.getElementById('btn-save-master-timetable').onclick = saveMasterTimetable;
+
+            // 日別教科カスタムモーダル開閉
+            document.getElementById('btn-edit-day-subjects').onclick = openDayCustomModal;
+            document.querySelectorAll('.btn-close-day-modal').forEach(btn => {
+                btn.onclick = () => document.getElementById('modal-day-custom').classList.add('hidden');
+            });
+            document.getElementById('btn-save-day-custom').onclick = saveDayCustom;
+            document.getElementById('btn-reset-day-custom').onclick = resetDayCustom;
+
+            // 日別メモ自動保存
+            document.getElementById('daily-note-input').oninput = (e) => {
+                const val = e.target.value.trim();
+                if (val) {
+                    state.notes[state.selectedDateStr] = val;
+                } else {
+                    delete state.notes[state.selectedDateStr];
+                }
+                saveAllData();
+            };
+
+            // サンプルデータ注入 & リセット
+            document.getElementById('btn-sample-data').onclick = injectSampleData;
+            document.getElementById('btn-clear-all').onclick = () => {
+                if (confirm('全ての記録と設定を初期化しますか？')) {
+                    localStorage.clear();
+                    state.records = {};
+                    state.customSubjects = {};
+                    state.notes = {};
+                    state.masterTimetable = JSON.parse(JSON.stringify(DEFAULT_MASTER_TIMETABLE));
+                    saveAllData();
+                    renderCalendar();
+                    renderDailyLogging();
+                    renderDashboard();
+                    showToast('データを初期化しました');
+                }
+            };
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+
+            const year = state.currentDate.getFullYear();
+            const month = state.currentDate.getMonth();
+
+            document.getElementById('calendar-month-year').innerText = `${year}年 ${month + 1}月`;
+
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+
+            const startDayOfWeek = firstDay.getDay();
+            const totalDays = lastDay.getDate();
+
+            // 前月のパディング
+            const prevMonthLastDay = new Date(year, month, 0).getDate();
+            for (let i = startDayOfWeek - 1; i >= 0; i--) {
+                const cell = document.createElement('div');
+                cell.className = 'h-16 md:h-20 p-1 text-xs font-medium select-none';
+                cell.style.color = 'var(--text-soft)';
+                cell.style.opacity = '0.5';
+                cell.innerText = prevMonthLastDay - i;
+                grid.appendChild(cell);
+            }
+
+            const todayStr = formatDateKey(new Date());
+
+            // 当月の日付
+            for (let day = 1; day <= totalDays; day++) {
+                const dateObj = new Date(year, month, day);
+                const dateKey = formatDateKey(dateObj);
+                const dayOfWeek = dateObj.getDay();
+
+                const isSelected = dateKey === state.selectedDateStr;
+                const isToday = dateKey === todayStr;
+
+                // 該当日の居眠り記録 (コマごとの連想配列)
+                const dayRecord = state.records[dateKey] || {};
+                const sleptPeriods = Object.keys(dayRecord).filter(p => dayRecord[p] === true);
+                const totalSlept = sleptPeriods.length;
+
+                const cell = document.createElement('div');
+                cell.className = `h-16 md:h-20 p-1.5 rounded-md border transition cursor-pointer flex flex-col justify-between relative overflow-hidden hover:border-slate-300`;
+                cell.style.borderColor = isSelected ? '#33607f' : 'var(--border-soft)';
+                cell.style.background = isSelected ? '#eef3f7' : 'var(--surface)';
+
+                cell.onclick = () => {
+                    state.selectedDateStr = dateKey;
+                    renderCalendar();
+                    renderDailyLogging();
+                };
+
+                let textColor = 'var(--text-mid)';
+                if (dayOfWeek === 0) textColor = '#fb7185';
+
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'flex justify-between items-center';
+
+                const dayNumSpan = document.createElement('span');
+                dayNumSpan.className = `text-xs font-bold ${isToday ? 'bg-slate-800 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]' : ''}`;
+                if (!isToday) dayNumSpan.style.color = textColor;
+                dayNumSpan.innerText = day;
+
+                headerDiv.appendChild(dayNumSpan);
+
+                // インジケーター表示
+                const indicatorDiv = document.createElement('div');
+                indicatorDiv.className = 'flex flex-col items-center justify-center flex-1 my-0.5 gap-0.5';
+
+                if (totalSlept > 0) {
+                    const stamp = document.createElement('div');
+                    stamp.className = 'text-rose-400 text-sm';
+                    stamp.innerHTML = '<i class="fa-solid fa-moon"></i>';
+
+                    const countBadge = document.createElement('span');
+                    countBadge.className = `text-[9px] px-1.5 py-0.5 rounded-full font-semibold border ${
+                        totalSlept >= 3 ? 'text-rose-500 border-rose-200 bg-rose-50' : 'border-slate-200'
+                    }`;
+                    if (totalSlept < 3) countBadge.style.color = 'var(--text-mid)';
+                    countBadge.innerText = `${totalSlept}コマ`;
+
+                    indicatorDiv.appendChild(stamp);
+                    indicatorDiv.appendChild(countBadge);
+                } else if (Object.keys(dayRecord).length === 4 && totalSlept === 0) {
+                    // 4コマすべて記録済みで、かつ1度も寝てない日
+                    const perfBadge = document.createElement('span');
+                    perfBadge.className = 'text-[10px] border rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-1';
+                    perfBadge.style.color = 'var(--text-mid)';
+                    perfBadge.style.borderColor = 'var(--border)';
+                    perfBadge.innerHTML = '<i class="fa-solid fa-check text-[9px]"></i> 全起き';
+                    indicatorDiv.appendChild(perfBadge);
+                }
+
+                cell.appendChild(headerDiv);
+                cell.appendChild(indicatorDiv);
+                grid.appendChild(cell);
+            }
+
+            // 次月のパディング
+            const totalCells = startDayOfWeek + totalDays;
+            const remainingCells = (7 - (totalCells % 7)) % 7;
+            for (let i = 1; i <= remainingCells; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'h-16 md:h-20 p-1 text-xs font-medium select-none';
+                cell.style.color = 'var(--text-soft)';
+                cell.style.opacity = '0.5';
+                cell.innerText = i;
+                grid.appendChild(cell);
+            }
+        }
+
+        function renderDailyLogging() {
+            const container = document.getElementById('daily-periods-container');
+            container.innerHTML = '';
+
+            const dateKey = state.selectedDateStr;
+            const dateParts = dateKey.split('-');
+            const year = dateParts[0];
+            const month = parseInt(dateParts[1], 10);
+            const day = parseInt(dateParts[2], 10);
+
+            const dateObj = new Date(year, month - 1, day);
+            const dayOfWeek = dateObj.getDay();
+            const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+
+            document.getElementById('selected-date-title').innerText = `${year}年${month}月${day}日(${dayNames[dayOfWeek]})`;
+
+            // その日の科目一覧を取得 (1〜4コマ)
+            const subjects = getSubjectsForDate(dateKey);
+            const dayRecords = state.records[dateKey] || {};
+
+            for (let p = 1; p <= 4; p++) {
+                const subjectName = subjects[p - 1] || '授業なし';
+                const isSlept = dayRecords[p] === true;
+
+                const item = document.createElement('div');
+                item.className = `p-3 rounded-md border transition flex items-center justify-between`;
+                item.style.borderColor = isSlept ? '#fecdd3' : 'var(--border)';
+                item.style.background = isSlept ? '#fdf2f3' : 'var(--bg-soft)';
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="w-7 h-7 rounded-md bg-slate-800 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                            ${p}
+                        </span>
+                        <div>
+                            <div class="text-[10px] font-medium" style="color: var(--text-soft);">${p}コマ（90分）</div>
+                            <div class="text-sm font-bold" style="color: var(--text);">${escapeHtml(subjectName)}</div>
+                        </div>
+                    </div>
+
+                    <!-- ワンタップボタン -->
+                    <button class="btn-toggle-sleep px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 border ${
+                        isSlept
+                            ? 'bg-rose-500 text-white border-rose-500 hover:bg-rose-600'
+                            : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }" ${isSlept ? '' : 'style="color: var(--text-mid);"'}>
+                        <i class="fa-solid ${isSlept ? 'fa-moon' : 'fa-eye'} text-[10px]"></i> ${isSlept ? '寝た' : '起きてた'}
+                    </button>
+                `;
+
+                // ワンタップ切り替えイベント
+                item.querySelector('.btn-toggle-sleep').onclick = () => {
+                    toggleSleepState(dateKey, p);
+                };
+
+                container.appendChild(item);
+            }
+
+            // メモ入力の反映
+            document.getElementById('daily-note-input').value = state.notes[dateKey] || '';
+        }
+
+        // 居眠りフラグのトグル処理
+        function toggleSleepState(dateKey, period) {
+            if (!state.records[dateKey]) {
+                state.records[dateKey] = {};
+            }
+
+            // 反転
+            const current = state.records[dateKey][period] === true;
+            state.records[dateKey][period] = !current;
+
+            saveAllData();
+            renderCalendar();
+            renderDailyLogging();
+            renderDashboard();
+
+            if (!current) {
+                showToast(`${period}コマ目を「寝た」に記録`);
+            } else {
+                showToast(`${period}コマ目を「起きてた」に変更`);
+            }
+        }
+
+        function renderDashboard() {
+            const currentYearMonth = state.selectedDateStr.substring(0, 7); // YYYY-MM
+
+            let monthSleptPeriods = 0;
+            const sleptDaysSet = new Set();
+
+            // 今月の居眠り集計
+            Object.keys(state.records).forEach(dateKey => {
+                if (dateKey.startsWith(currentYearMonth)) {
+                    const dayRec = state.records[dateKey];
+                    let hasSleepInDay = false;
+
+                    Object.keys(dayRec).forEach(p => {
+                        if (dayRec[p] === true) {
+                            monthSleptPeriods++;
+                            hasSleepInDay = true;
+                        }
+                    });
+
+                    if (hasSleepInDay) {
+                        sleptDaysSet.add(dateKey);
+                    }
+                }
+            });
+
+            document.getElementById('stat-month-periods').innerText = monthSleptPeriods;
+            document.getElementById('stat-month-days').innerText = sleptDaysSet.size;
+
+            // 全期間の教科別ランキング
+            const subjectCounts = {};
+            const periodCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+            const weekdayCounts = [0, 0, 0, 0, 0]; // 月〜金
+
+            Object.keys(state.records).forEach(dateKey => {
+                const dayRec = state.records[dateKey];
+                const subjects = getSubjectsForDate(dateKey);
+
+                const parts = dateKey.split('-');
+                const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                const dayOfWeek = d.getDay(); // 1:月 ~ 5:金
+
+                for (let p = 1; p <= 4; p++) {
+                    if (dayRec[p] === true) {
+                        const subName = subjects[p - 1] || '不明';
+                        subjectCounts[subName] = (subjectCounts[subName] || 0) + 1;
+                        periodCounts[p] = (periodCounts[p] || 0) + 1;
+
+                        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                            weekdayCounts[dayOfWeek - 1]++;
+                        }
+                    }
+                }
+            });
+
+            // ワースト教科 TOP5
+            const sortedSubjects = Object.entries(subjectCounts).sort((a, b) => b[1] - a[1]);
+            document.getElementById('stat-top-subject').innerText = sortedSubjects.length > 0 ? sortedSubjects[0][0] : '---';
+
+            const topListContainer = document.getElementById('top-subjects-list');
+            topListContainer.innerHTML = '';
+
+            if (sortedSubjects.length === 0) {
+                topListContainer.innerHTML = '<div class="text-xs italic" style="color: var(--text-soft);">まだ居眠り記録がありません</div>';
+            } else {
+                sortedSubjects.slice(0, 5).forEach(([subject, count], index) => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center justify-between';
+                    row.innerHTML = `
+                        <div class="flex items-center gap-2 truncate">
+                            <span class="w-4 font-bold text-center text-xs" style="color: var(--text-soft);">${index + 1}</span>
+                            <span class="truncate max-w-[120px]" style="color: var(--text);">${escapeHtml(subject)}</span>
+                        </div>
+                        <span class="border px-2 py-0.5 rounded-full font-semibold text-[10px]" style="border-color: var(--border); color: var(--text-mid);">${count}コマ</span>
+                    `;
+                    topListContainer.appendChild(row);
+                });
+            }
+
+            // 最多居眠りコマ (1〜4)
+            const sortedPeriods = Object.entries(periodCounts).sort((a, b) => b[1] - a[1]);
+            if (sortedPeriods.length > 0 && sortedPeriods[0][1] > 0) {
+                document.getElementById('stat-peak-period').innerText = `${sortedPeriods[0][0]}コマ目（${sortedPeriods[0][1]}回）`;
+            } else {
+                document.getElementById('stat-peak-period').innerText = '---';
+            }
+
+            // 曜日別グラフ (月〜金)
+            const maxVal = Math.max(...weekdayCounts, 1);
+            const chartContainer = document.getElementById('weekday-chart');
+            chartContainer.innerHTML = '';
+
+            weekdayCounts.forEach((count) => {
+                const heightPercent = Math.max((count / maxVal) * 100, 8);
+
+                const barWrap = document.createElement('div');
+                barWrap.className = 'flex flex-col items-center flex-1 h-full justify-end group';
+                barWrap.innerHTML = `
+                    <div class="text-[9px] font-bold mb-1 ${count === 0 ? 'opacity-0' : ''}" style="color: var(--text-soft);">${count}</div>
+                    <div style="height: ${heightPercent}%;" class="weekday-bar w-4 sm:w-5 transition-all duration-300"></div>
+                `;
+                chartContainer.appendChild(barWrap);
+            });
+        }
+
+        function openTimetableModal() {
+            const grid = document.getElementById('master-timetable-grid');
+            grid.innerHTML = '';
+
+            for (let w = 1; w <= 5; w++) {
+                const dayName = WEEKDAY_NAMES[w - 1];
+                const col = document.createElement('div');
+                col.className = 'p-3 rounded-md border space-y-2';
+                col.style.background = 'var(--bg-soft)';
+                col.style.borderColor = 'var(--border)';
+
+                let inputsHtml = `<div class="font-bold text-xs text-center border-b pb-1" style="color: var(--text-mid); border-color: var(--border-soft);">${dayName}曜日</div>`;
+
+                const subjects = state.masterTimetable[w] || ['', '', '', ''];
+
+                for (let p = 1; p <= 4; p++) {
+                    inputsHtml += `
+                        <div>
+                            <label class="block text-[10px] font-medium" style="color: var(--text-soft);">${p}コマ</label>
+                            <input type="text" data-day="${w}" data-period="${p}" value="${escapeHtml(subjects[p - 1] || '')}" placeholder="教科名" class="master-subject-input w-full border rounded-md px-2 py-1 text-xs font-medium focus:border-accent-400" style="background: var(--surface); border-color: var(--border); color: var(--text);">
+                        </div>
+                    `;
+                }
+
+                col.innerHTML = inputsHtml;
+                grid.appendChild(col);
+            }
+
+            document.getElementById('modal-timetable').classList.remove('hidden');
+        }
+
+        function saveMasterTimetable() {
+            const inputs = document.querySelectorAll('.master-subject-input');
+            const newTT = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+
+            inputs.forEach(input => {
+                const day = input.dataset.day;
+                const period = parseInt(input.dataset.period, 10) - 1;
+                newTT[day][period] = input.value.trim();
+            });
+
+            state.masterTimetable = newTT;
+            saveAllData();
+            renderCalendar();
+            renderDailyLogging();
+            renderDashboard();
+
+            document.getElementById('modal-timetable').classList.add('hidden');
+            showToast('基本時間割を保存しました');
+        }
+
+        function openDayCustomModal() {
+            const dateKey = state.selectedDateStr;
+            document.getElementById('modal-day-custom-date').innerText = dateKey;
+
+            const container = document.getElementById('day-custom-inputs');
+            container.innerHTML = '';
+
+            const subjects = getSubjectsForDate(dateKey);
+
+            for (let p = 1; p <= 4; p++) {
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-2';
+                div.innerHTML = `
+                    <span class="w-8 h-8 rounded-md bg-slate-800 text-white font-bold text-xs flex items-center justify-center shrink-0">${p}</span>
+                    <input type="text" data-period="${p}" value="${escapeHtml(subjects[p - 1] || '')}" placeholder="教科名 (例: 補講/休講)" class="day-subject-input w-full border rounded-md px-3 py-1.5 text-xs font-medium focus:border-accent-400" style="background: var(--bg-soft); border-color: var(--border); color: var(--text);">
+                `;
+                container.appendChild(div);
+            }
+
+            document.getElementById('modal-day-custom').classList.remove('hidden');
+        }
+
+        function saveDayCustom() {
+            const dateKey = state.selectedDateStr;
+            const inputs = document.querySelectorAll('.day-subject-input');
+
+            if (!state.customSubjects[dateKey]) {
+                state.customSubjects[dateKey] = {};
+            }
+
+            inputs.forEach(input => {
+                const p = input.dataset.period;
+                state.customSubjects[dateKey][p] = input.value.trim();
+            });
+
+            saveAllData();
+            renderDailyLogging();
+            renderDashboard();
+
+            document.getElementById('modal-day-custom').classList.add('hidden');
+            showToast('本日の科目を修正しました');
+        }
+
+        function resetDayCustom() {
+            const dateKey = state.selectedDateStr;
+            delete state.customSubjects[dateKey];
+
+            saveAllData();
+            renderDailyLogging();
+            renderDashboard();
+
+            document.getElementById('modal-day-custom').classList.add('hidden');
+            showToast('基本時間割に戻しました');
+        }
+
+        function injectSampleData() {
+            if (!confirm('サンプルデータを登録しますか？')) return;
+
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+
+            const samples = {};
+            const notes = {};
+
+            // 当月の平日20日分程度のサンプルを自動生成
+            for (let day = 1; day <= 28; day++) {
+                const d = new Date(year, month, day);
+                if (d.getDay() === 0 || d.getDay() === 6) continue; // 平日のみ
+
+                const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+                // 確率で居眠りを発生
+                if (Math.random() > 0.3) {
+                    samples[dateKey] = {};
+                    const sleptCount = Math.floor(Math.random() * 3) + 1;
+                    for (let c = 0; c < sleptCount; c++) {
+                        const p = Math.floor(Math.random() * 4) + 1;
+                        samples[dateKey][p] = true;
+                    }
+                    notes[dateKey] = '夜更かししてしまった...';
+                }
+            }
+
+            state.records = samples;
+            state.notes = notes;
+            saveAllData();
+            renderCalendar();
+            renderDailyLogging();
+            renderDashboard();
+
+            showToast('サンプルデータを読み込みました');
+        }
+
+        // ユーティリティ
+        function formatDateKey(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-message');
+            document.getElementById('toast-text').innerText = msg;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
