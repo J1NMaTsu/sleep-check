@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+      <!-- PWAのマニフェスト読み込み -->
+  　<link rel="manifest" href="./manifest.json">
+
+  <!-- アプリのテーマカラー（ブラウザのアドレスバー等の色） -->
+  　<meta name="theme-color" content="#000000">
+
+  <!-- iOS Safari用のアプリアイコン・表示設定 -->
+  　<link rel="apple-touch-icon" href="./icon-192.png">
+  　<meta name="apple-mobile-web-app-capable" content="yes">
+　  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>授業居眠りチェッカー</title>
@@ -989,5 +1000,17 @@
             }, 2000);
         }
     </script>
+      <!-- Service Workerの登録処理 -->
+　  <script>
+  　  if ('serviceWorker' in navigator) {
+    　  window.addEventListener('load', () => {
+      　  navigator.serviceWorker.register('./sw.js')
+        　  .then((reg) => console.log('Service Worker 登録成功:', reg))
+          　.catch((err) => console.error('Service Worker 登録失敗:', err));
+      　});
+    　}
+  　</script>
+</body>
+
 </body>
 </html>
